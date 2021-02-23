@@ -49,6 +49,7 @@ function parksHandler(req,res){
 
     superagent.get(url)
    .then(parkData =>{
+       console.log('park DATTA',parkData);
       let parkArray =  parkData.body.data.map((item, i)=>{
        return new Parks(item);
     })

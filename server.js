@@ -23,18 +23,16 @@ server.get('/*', errorHandler);
 
 
 // Handler Functions
-let weatherArray = [];
 function weatherHandler(req,res){
     const cityName = req.query.search_query;
     let key = process.env.WEATHER_API_KEY;
     let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${cityName}&key=${key}&days=5`;
     superagent.get(url)
     .then(weatherData =>{
-         weatherData.body.data.map((item, i)=>{
-        const locationData = new Weather(item);
-        weatherArray.push(locationData);
-        return weatherArray;
+         let weatherArray = weatherData.body.data.map((item)=>{
+        return new Weather(item);
      })
+     console.log(weatherArray);
      res.send(weatherArray);
      })
  
@@ -44,23 +42,21 @@ function weatherHandler(req,res){
 
 }
 
-let parkArray = [];
 function parksHandler(req,res){
+    let city = req.query.search_query;
     let key = process.env.PARKS_API_KEY;
-    let url = `https://developer.nps.gov/api/v1/parks?parkCode=acad&api_key=${key}`;
+    let url = `https://developer.nps.gov/api/v1/parks?q=${city}&api_key=${key}`;
 
     superagent.get(url)
    .then(parkData =>{
-        parkData.body.data.map((item, i)=>{
-       const locationData = new Parks(item);
-       parkArray.push(locationData);
-       return parkArray;
+      let parkArray =  parkData.body.data.map((item, i)=>{
+       return new Parks(item);
     })
     res.send(parkArray);
     })
 
     .catch(()=>{
-        handleErrors('Error in getting data from LocationIQ')
+        errorHandler('Error in getting data from LocationIQ')
     })
    
 }
@@ -109,16 +105,16 @@ function Location (city, geoData) {
 
 
 function Weather ( weatherData) {
-    this.weather = weatherData.weather.description;
+    this.forecast = weatherData.weather.description;
     this.time= weatherData.datetime;
 }
 
 function Parks (park){
-    this.parkName = park.fullName;
-    this.parkAddress = park.addresses;
-    this.parkFee = park.fees;
-    this.parkDescription = park.description;
-    this.parkUrl = park.url;
+    this.name = park.fullName;
+    this.address = `${park.addresses[0].line1} ${park.addresses[0].city} ${park.addresses[0].stateCode} ${park.addresses[0].postalCode}`;
+    this.fee = park.entranceFees[0].cost || '0.00';
+    this.description = park.description;
+    this.url = park.url;
 }
 
 server.listen(PORT, ()=>{

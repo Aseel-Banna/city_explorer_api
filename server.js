@@ -25,13 +25,10 @@ server.get('/location',check);
 server.get('/weather', weatherHandler);
 server.get('/parks', parksHandler);
 server.get('/movies', moviesHandler);
+server.get('/yelp', yelpHandler);
 server.get('/*', errorHandler);
 
-// server.get('/addLocation',addLocation);
-
 // Handler Functions
-// let SQL;
-
 function check(req,res){
     const cityName = req.query.city;
     let key = process.env.GEOCODE_API_KEY;
@@ -108,9 +105,44 @@ function parksHandler(req,res){
 }
 
 function moviesHandler(req, res){
+    let city = req.query.search_query;
     let key = process.env.MOVIE_API_KEY;
-
+    let url = `https://api.themoviedb.org/3/search/movie?api_key=${key}&query=${city}`
+    return superagent.get(url)
+    .then(movieData =>{
+        // console.log('movie DATA', movieData);
+       let moviesArray =  movieData.body.results.map((item, i)=>{
+        return new Movies(item);
+     })
+     res.send(moviesArray);
+     })
+ 
+     .catch(()=>{
+         errorHandler('Error in getting data from LocationIQ')
+     })
 }
+
+function yelpHandler(req,res){ 
+    let lat = req.query.latitude;
+    let lon = req.query.longitude;
+    let page = req.query.page;
+    let city = req.query.search_query;
+    let offset = (page - 1) * 5;
+    let key = process.env.YELP_API_KEY;
+    let url = `https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=${lat}&longitude=${lon}&limit=5&offset=${offset}`;
+    return superagent.get(url)
+    .set("Authorization", `Bearer ${key}`)
+      .then((yelpData) => {
+        let yelpArray= yelpData.body.businesses.map((e) => {
+          return new Yelp(e);
+        });
+        console.log("YELP DATA", yelpArray);
+        res.send(yelpArray);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+    }
 
 // function  locationHandler (req, res)  {
 // //    console.log(req.query);
@@ -164,6 +196,24 @@ function Parks (park){
     this.fee = park.entranceFees[0].cost || '0.00';
     this.description = park.description;
     this.url = park.url;
+}
+
+function Movies (data){
+    this.title = data.title;
+    this.overview = data.overview;
+    this.average_votes = data.vote_average;
+    this.total_votes = data.vote_count;
+    this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+    this.popularity = data.popularity;
+    this.released_on = data.release_date;
+}
+
+function Yelp (data){
+    this.name = data.name;
+    this.image_url = data.image_url;
+    this.price = data.price;
+    this.rating = data.rating;
+    this.url = data.url;
 }
 
 client.connect()

@@ -1,22 +1,22 @@
 'use strict';
+require('dotenv').config();
 
 let locationArray = [];
-require('dotenv').config();
 
 const express = require ('express');
 const cors = require('cors');
-const server = express();
 const superagent = require('superagent');
 
 // Database 
 const pg =require('pg');
-const client = new pg.Client(process.env.DATABASE_URL);
 // const client = new pg.Client({ connectionString: process.env.DATABASE_URL,   ssl: { rejectUnauthorized: false } });
 
 
-server.use(cors()); 
 
 const PORT = process.env.PORT || 3030;
+const server = express();
+server.use(cors()); 
+const client = new pg.Client(process.env.DATABASE_URL);
 
 // Server tests and handlers
 server.get('/', homeHandler);
@@ -24,20 +24,22 @@ server.get('/test', testHandler);
 server.get('/location',check);
 server.get('/weather', weatherHandler);
 server.get('/parks', parksHandler);
+server.get('/movies', moviesHandler);
 server.get('/*', errorHandler);
 
 // server.get('/addLocation',addLocation);
 
 // Handler Functions
-let SQL;
+// let SQL;
 
 function check(req,res){
     const cityName = req.query.city;
     let key = process.env.GEOCODE_API_KEY;
     let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
-    SQL = `SELECT * FROM locations WHERE search_query = ${cityName};`;
+    let SQL = `SELECT * FROM locations WHERE search_query = '${cityName}';`;
     client.query(SQL)
     .then(results =>{
+        console.log(results.rows)
         if (results.rows.length === 0){
             superagent.get(url)
             .then(locData =>{
@@ -46,7 +48,7 @@ function check(req,res){
             let safeValues = [cityName,locationData.formatted_query, locationData.latitude, locationData.longitude];
             client.query(SQL,safeValues)
             .then((result)=>{
-            res.send(result.rows);
+            res.send(result.rows[0]);
         })
         .catch(()=>{
             errorHandler('Error in getting data from DATABASE');
@@ -55,11 +57,11 @@ function check(req,res){
 })
 
         }else{
-            SQL = `SELECT * FROM locations;`;
+            SQL = `SELECT * FROM locations WHERE search_query = '${cityName}';`;
             client.query(SQL)
             .then(results =>{
-                console.log(results);
-                res.send(results.rows);
+                // console.log(results);
+                res.send(results.rows[0]);
             })
             .catch((error)=>{
                 res.send('pppppppppppp',error.message)
@@ -67,86 +69,6 @@ function check(req,res){
                 }
             })
 }
-
-// function renderData(req, res){
-//     let SQL = `SELECT * FROM locations;`;
-//     client.query(SQL)
-//     .then(results =>{
-//         console.log(results);
-//         res.send(results.rows);
-//     })
-//     .catch((error)=>{
-//         res.send('pppppppppppp',error.message)
-//     })
-// }
-
-// function addLocation(req,res){
-//     // const cityName = req.query.city;
-//     // console.log(cityName);
-//     let key = process.env.GEOCODE_API_KEY;
-//     let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
-//     superagent.get(url)
-//    .then(locData =>{
-//        let SQL = `INSERT INTO locations VALUES ($1,$2, $3, $4) RETURNING *;`;
-//        const locationData = new Location(cityName, locData.body[0]);
-//        let safeValues = [cityName,locData.body[0].formatted_query, locData.body[0].latitude, locData.body[0].longitude];
-//        client.query(SQL,safeValues)
-//        .then((result)=>{
-//        res.send(result.rows);
-//    })
-//    .catch(()=>{
-//        errorHandler('Error in getting data from DATABASE');
-//    });
-    
-// })
-// }
-
-
-
-// function checkData(req,res){
-//     client.query(SQL)
-//     .then(results =>{
-//         if (results.rows.length !== 0){
-//             getData(req,res);
-//         }else{
-//             sendData(req,res);
-//         }
-//     })
-//     .catch(()=>{
-//         errorHandler('Error in getting DATA!!');
-//     })
-// }
-
-// function getData(req,res){
-//     SQL = `SELECT * FROM people;`;
-//     client.query(SQL)
-//     .then(results =>{
-//         console.log(results);
-//         res.send(results.rows);
-//     })
-//     .catch(()=>{
-//         errorHandler('Error in getting data from LocationIQ')
-//     })
-// }
-
-// function sendData(req,res){
-//     SQL = `INSERT INTO people VALUES ($1,$2, $3, $4) RETURNING *;`;
-//     let search_query = req.query.search_query;
-//     let formatted_query = req.query.formatted_query;
-//     let latitude = req.query.latitude;
-//     let longitude = req.query.longitude;
-//     let safeValues = [search_query,formatted_query, latitude, longitude];
-//     client.query(SQL,safeValues)
-//     .then((result)=>{
-//         res.send(result.rows);
-//         // res.send('data has been inserted!!');
-//     })
-//     .catch((error)=>{
-//         errorHandler('Error in getting data from LocationIQ');
-//         })
-// }
-
-
 function weatherHandler(req,res){
     const cityName = req.query.search_query;
     let key = process.env.WEATHER_API_KEY;
@@ -157,7 +79,6 @@ function weatherHandler(req,res){
         return new Weather(item);
      })
      console.log(weatherArray);
-     checkDataBase();
      res.send(weatherArray);
      })
  
@@ -184,6 +105,11 @@ function parksHandler(req,res){
         errorHandler('Error in getting data from LocationIQ')
     })
    
+}
+
+function moviesHandler(req, res){
+    let key = process.env.MOVIE_API_KEY;
+
 }
 
 // function  locationHandler (req, res)  {
@@ -219,9 +145,9 @@ function errorHandler(errors) {
 
 function Location (city, geoData) {
     this.search_query = city;
-    this.formatted_query= geoData[0].display_name;
-    this.latitude = geoData[0].lat;
-    this.longitude = geoData[0].lon;
+    this.formatted_query= geoData.display_name;
+    this.latitude = geoData.lat;
+    this.longitude = geoData.lon;
 
     locationArray.push(this);
 }
